@@ -81,7 +81,7 @@ const BOSS_MINION_INTERVAL = 7;
  */
 const SPAWN_RING = Math.hypot(1280, 720) / 2 + 60;
 /** Enemies farther than this from the player teleport back to the ring. */
-const FAR_LIMIT = SPAWN_RING * 2.2;
+const FAR_LIMIT = SPAWN_RING * 1.8;
 /** Minimum interval between boss hit-stop freezes (seconds of game time). */
 const HIT_STOP_INTERVAL = 0.25;
 
@@ -166,7 +166,7 @@ export class Game implements CombatWorld {
     this.hitStop = 0;
     this.activeBoss = null;
     this.bossName = '';
-    this.spawnTimer = 1.2;
+    this.spawnTimer = 0.4;
     this.surgeIndex = 0;
     this.bossIndex = 0;
     this.levelUpQueue = 0;

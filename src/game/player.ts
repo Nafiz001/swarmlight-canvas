@@ -56,7 +56,7 @@ export function createPlayer(): PlayerState {
  * the curve to roughly one level-up per 20-30 s by the late game.
  */
 export function xpForLevel(level: number): number {
-  return Math.round(5 + (level - 1) * 4 + Math.pow(level - 1, 1.62));
+  return Math.round(4 + (level - 1) * 4 + Math.pow(level - 1, 1.62));
 }
 
 /** Adds XP and returns how many level-ups it triggered. */
@@ -85,5 +85,5 @@ export function cooldownMultiplier(p: PlayerState): number {
 }
 
 export function magnetRadius(p: PlayerState): number {
-  return 75 + 34 * p.passives.magnet;
+  return 100 + 34 * p.passives.magnet;
 }

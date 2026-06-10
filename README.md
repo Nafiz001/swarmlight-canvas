@@ -4,11 +4,11 @@ A survivors-like where you are the last light — 1,500 enemies at 60 fps on a s
 
 **Play it:** https://nafiz001.github.io/swarmlight-canvas/
 
-You are a lantern-spirit holding back a tide of darkness for ten minutes. Your weapons fire on their own; you decide where to stand and what to become. Everything on screen — every sprite, every glow, every sound — is generated in code at runtime. The `dependencies` field in `package.json` is empty, and the production bundle is 54 kB (18.5 kB gzipped).
+You are a lantern-spirit holding back a tide of darkness for ten minutes. Your weapons fire on their own; you decide where to stand and what to become. Everything on screen — every sprite, every glow, every sound — is generated in code at runtime. The `dependencies` field in `package.json` is empty, and the production bundle is 54.5 kB (18.7 kB gzipped).
 
 ## Features
 
-- Ten-minute arena survival with a data-driven difficulty curve: 8 wave phases, 5 surge events, and bosses at 5:00 and 9:30
+- Ten-minute arena survival with a data-driven difficulty curve: 8 wave phases, 7 surge events, and bosses at 5:00 and 9:30
 - Five auto-firing weapons with 5 levels each: piercing bolts, orbiting wards, radial novas, homing wisps and chain lightning
 - Five stacking passives, level-up draft (3 weighted cards, no duplicates, hard caps), and elite enemies that drop free level-ups
 - Five enemy archetypes with distinct behavior, including a telegraph-then-dash attacker and a splitter that bursts into swarmers
@@ -37,7 +37,7 @@ Collision is the classic survivors-like killer. Three systems need to ask "what 
 
 The fix is a uniform-grid spatial hash (`engine/spatialHash.ts`), rebuilt from scratch every frame — clearing and re-inserting 1,500 circles is far cheaper than maintaining an incremental structure. Entities live in flat `Float32Array`s; buckets map a packed 32-bit cell key to slot indices, and bucket arrays are reused across frames so steady-state operation allocates nothing. The hash tracks which buckets were written each frame, so `clear()` resets exactly those — its cost follows the live entity count, not every cell ever visited — and when a long wandering run grows the visited-cell set past a bound, the bucket map is evicted wholesale and rebuilt from the working set. Cell size was tuned to 48 px (about 2× the median enemy diameter): smaller cells meant more bucket writes per insert, larger cells meant more false candidates per query. An entity spanning multiple cells would be reported once per cell, so queries dedup with a generation stamp — one integer compare per candidate instead of building a `Set` per query.
 
-Two gameplay-level tricks cut the remaining cost. Each enemy caps separation at 6 neighbors (the 7th overlapping neighbor changes nothing visually), and separation runs on alternating frames for each half of the horde with doubled strength — same equilibrium, half the queries. The F3 HUD displays pair checks live: a saturated 2,000-enemy horde against a fully maxed build averages ~42k checks per frame, with peaks near 200k when a full flight of homing wisps retargets inside the swarm — versus well over a million for brute force. Because the simulation is deterministic, those are exact reproductions, not wall-clock estimates: a headless benchmark in the test suite replays that scene and asserts the counter stays under 60k average / 250k peak.
+Two gameplay-level tricks cut the remaining cost. Each enemy caps separation at 6 neighbors (the 7th overlapping neighbor changes nothing visually), and separation runs on alternating frames for each half of the horde with doubled strength — same equilibrium, half the queries. The F3 HUD displays pair checks live: a saturated 2,000-enemy horde against a fully maxed build averages ~58k checks per frame, with peaks near 263k when a full flight of homing wisps retargets inside the swarm — versus well over a million for brute force. Because the simulation is deterministic, those are exact reproductions, not wall-clock estimates: a headless benchmark in the test suite replays that scene and asserts the counter stays under 75k average / 320k peak.
 
 ### 2. Making 1,500 things glow without `shadowBlur`
 

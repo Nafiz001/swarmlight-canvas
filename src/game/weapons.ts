@@ -43,11 +43,11 @@ export const WEAPONS: Record<WeaponKind, WeaponDef> = {
     name: 'Ember Bolt',
     tagline: 'Piercing bolt seeking the nearest shadow',
     levels: [
-      L(9, 0.85, 1, 1, 420, 520),
-      L(12, 0.75, 1, 2, 440, 540),
-      L(15, 0.65, 2, 2, 460, 560),
-      L(19, 0.55, 2, 3, 480, 580),
-      L(24, 0.45, 3, 4, 500, 600),
+      L(13, 0.6, 1, 2, 420, 520),
+      L(17, 0.52, 1, 3, 440, 540),
+      L(21, 0.46, 2, 3, 460, 560),
+      L(26, 0.4, 2, 4, 480, 580),
+      L(32, 0.34, 3, 5, 500, 600),
     ],
   },
   orbit: {

@@ -78,6 +78,15 @@ function withAlpha(hex: string, alpha: number): string {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
+/** Linear blend of two hex colors; t = 1 returns `b`. */
+function mix(a: string, b: string, t: number): string {
+  const ch = (hex: string, i: number): number => parseInt(hex.slice(i, i + 2), 16);
+  const r = Math.round(ch(a, 1) + (ch(b, 1) - ch(a, 1)) * t);
+  const g = Math.round(ch(a, 3) + (ch(b, 3) - ch(a, 3)) * t);
+  const bl = Math.round(ch(a, 5) + (ch(b, 5) - ch(a, 5)) * t);
+  return `rgb(${r},${g},${bl})`;
+}
+
 type ShapeDrawer = (ctx: CanvasRenderingContext2D, r: number) => void;
 
 const SHAPES: Record<EnemyKind, ShapeDrawer> = {
@@ -141,10 +150,10 @@ const ENEMY_TINT: Record<EnemyKind, string> = {
   boss2: PALETTE.violet,
 };
 
-/** Bakes body (dark silhouette + glowing rim + eyes), white flash, and glow. */
+/** Bakes body (tinted silhouette + halo + bright rim + eyes), white flash, and glow. */
 function bakeEnemy(kind: EnemyKind, baseRadius: number): EnemySprites {
   const tint = ENEMY_TINT[kind];
-  const pad = 6;
+  const pad = 9;
   const size = Math.ceil(baseRadius * 2.6) + pad * 2;
 
   const drawSilhouette = (ctx: CanvasRenderingContext2D, fill: string, rim: string): void => {
@@ -152,28 +161,35 @@ function bakeEnemy(kind: EnemyKind, baseRadius: number): EnemySprites {
     ctx.beginPath();
     SHAPES[kind](ctx, baseRadius);
     ctx.closePath();
+    // Soft halo stroke under the body so the silhouette pops off the dark
+    // arena even before the additive glow pass.
+    ctx.globalAlpha = 0.45;
+    ctx.strokeStyle = rim;
+    ctx.lineWidth = 5.5;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
     ctx.fillStyle = fill;
     ctx.fill();
     ctx.strokeStyle = rim;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2.75;
     ctx.stroke();
     // Eyes: two glowing points oriented toward +x (sprites are not rotated;
     // at silhouette scale the eyes read as "facing" regardless).
     const eyeOffset = baseRadius * 0.34;
-    ctx.fillStyle = rim;
+    ctx.fillStyle = mix(rim, '#ffffff', 0.65);
     ctx.beginPath();
-    ctx.arc(eyeOffset, -baseRadius * 0.22, Math.max(1.2, baseRadius * 0.12), 0, Math.PI * 2);
-    ctx.arc(eyeOffset, baseRadius * 0.22, Math.max(1.2, baseRadius * 0.12), 0, Math.PI * 2);
+    ctx.arc(eyeOffset, -baseRadius * 0.24, Math.max(2, baseRadius * 0.21), 0, Math.PI * 2);
+    ctx.arc(eyeOffset, baseRadius * 0.24, Math.max(2, baseRadius * 0.21), 0, Math.PI * 2);
     ctx.fill();
   };
 
   const [body, bodyCtx] = makeCanvas(size);
-  drawSilhouette(bodyCtx, PALETTE.body, tint);
+  drawSilhouette(bodyCtx, mix(PALETTE.body, tint, 0.42), mix(tint, '#ffffff', 0.3));
 
   const [flash, flashCtx] = makeCanvas(size);
   drawSilhouette(flashCtx, PALETTE.ivory, PALETTE.ivory);
 
-  return { body, flash, glow: makeGlow(size * 1.6, tint, 0.5), baseRadius };
+  return { body, flash, glow: makeGlow(size * 1.7, tint, 0.65), baseRadius };
 }
 
 function bakeGem(color: string, r: number): HTMLCanvasElement {
@@ -228,7 +244,7 @@ export function bakeSprites(): SpriteAtlas {
   return {
     enemies: {
       drifter: bakeEnemy('drifter', 11),
-      mite: bakeEnemy('mite', 7),
+      mite: bakeEnemy('mite', 8),
       darter: bakeEnemy('darter', 9),
       bulwark: bakeEnemy('bulwark', 19),
       splitter: bakeEnemy('splitter', 12),

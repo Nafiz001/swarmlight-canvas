@@ -193,8 +193,8 @@ describe('Game (headless integration)', () => {
     }
     const average = total / frames;
     expect(average).toBeGreaterThan(0);
-    expect(average).toBeLessThan(60_000); // measured ~42k
-    expect(peak).toBeLessThan(250_000); // measured ~200k during wisp retargeting
+    expect(average).toBeLessThan(75_000); // measured ~58k
+    expect(peak).toBeLessThan(320_000); // measured ~263k during wisp retargeting
   });
 
   it('player death ends the run in gameover', () => {

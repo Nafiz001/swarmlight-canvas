@@ -24,11 +24,11 @@ export interface EnemyDef {
 }
 
 export const ENEMY_DEFS: Record<EnemyKind, EnemyDef> = {
-  drifter: { hp: 14, speed: 56, radius: 11, damage: 8, xp: 1, mass: 1 },
-  mite: { hp: 6, speed: 110, radius: 7, damage: 5, xp: 1, mass: 0.6 },
-  darter: { hp: 18, speed: 78, radius: 9, damage: 10, xp: 5, mass: 0.9 },
-  bulwark: { hp: 90, speed: 30, radius: 19, damage: 14, xp: 5, mass: 3.5 },
-  splitter: { hp: 26, speed: 64, radius: 12, damage: 9, xp: 5, mass: 1.2 },
+  drifter: { hp: 10, speed: 84, radius: 11, damage: 8, xp: 1, mass: 1 },
+  mite: { hp: 5, speed: 132, radius: 8, damage: 4, xp: 1, mass: 0.6 },
+  darter: { hp: 16, speed: 96, radius: 9, damage: 10, xp: 5, mass: 0.9 },
+  bulwark: { hp: 90, speed: 44, radius: 19, damage: 14, xp: 5, mass: 3.5 },
+  splitter: { hp: 22, speed: 84, radius: 12, damage: 9, xp: 5, mass: 1.2 },
   boss1: { hp: 2600, speed: 46, radius: 40, damage: 24, xp: 25, mass: 30 },
   boss2: { hp: 7200, speed: 54, radius: 46, damage: 32, xp: 25, mass: 40 },
 };

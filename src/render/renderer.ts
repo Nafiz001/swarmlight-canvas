@@ -71,8 +71,8 @@ export class Renderer {
     const viewY = this.camY + shakeY - this.height / 2;
     ctx.translate(-viewX, -viewY);
 
-    this.drawStarfield(viewX, viewY, 0.35, 150, 0.1);
-    this.drawStarfield(viewX, viewY, 0.65, 105, 0.18);
+    this.drawStarfield(viewX, viewY, 0.35, 150, 0.2);
+    this.drawStarfield(viewX, viewY, 0.65, 105, 0.32);
 
     const minX = viewX - CULL_MARGIN;
     const minY = viewY - CULL_MARGIN;
@@ -181,12 +181,12 @@ export class Renderer {
       if (e.x < minX || e.x > maxX || e.y < minY || e.y > maxY) continue;
       const sp = this.sprites.enemies[e.kind];
       let scale = (e.radius / sp.baseRadius) * (e.elite ? 1.5 : 1);
-      let glowAlpha = 0.5;
+      let glowAlpha = 0.65;
       if (e.kind === 'darter' && e.phase === DART.windup) {
         // Telegraph: glow swells during the wind-up so the dash reads early.
         const t = 1 - e.phaseTimer / DART_WINDUP;
         scale *= 1 + t * 0.9;
-        glowAlpha = 0.5 + t * 0.5;
+        glowAlpha = 0.65 + t * 0.35;
       }
       const w = sp.glow.width * scale;
       ctx.globalAlpha = glowAlpha;
