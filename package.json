@@ -1,0 +1,21 @@
+{
+  "name": "swarmlight-canvas",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A survivors-like arena game: 1,500 enemies at 60 fps on a single canvas, zero runtime dependencies.",
+  "author": "Md. Nafiz Ahmed",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "~5.9.0",
+    "vite": "^7.0.0",
+    "vitest": "^3.0.0"
+  }
+}
