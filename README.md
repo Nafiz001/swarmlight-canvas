@@ -4,6 +4,12 @@ A survivors-like where you are the last light — 1,500 enemies at 60 fps on a s
 
 **Play it:** https://nafiz001.github.io/swarmlight-canvas/
 
+![Mid-run gameplay: the lantern-spirit holding a swarm of mites and drifters at bay](docs/screenshots/gameplay.png)
+
+| The level-up draft | The F3 performance HUD |
+| --- | --- |
+| ![Level-up draft overlay](docs/screenshots/level-up.png) | ![Performance HUD with live entity counts](docs/screenshots/perf-hud.png) |
+
 You are a lantern-spirit holding back a tide of darkness for ten minutes. Your weapons fire on their own; you decide where to stand and what to become. Everything on screen — every sprite, every glow, every sound — is generated in code at runtime. The `dependencies` field in `package.json` is empty, and the production bundle is 54.5 kB (18.7 kB gzipped).
 
 ## Features
