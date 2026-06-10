@@ -1,0 +1,404 @@
+:root {
+  --ivory: #f2ede4;
+  --ivory-dim: rgba(242, 237, 228, 0.55);
+  --gold: #e8b76a;
+  --violet: #8b7bd8;
+  --bg: #0a0a12;
+  --panel: rgba(14, 14, 24, 0.92);
+  --line: rgba(242, 237, 228, 0.14);
+  --font:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    'Helvetica Neue',
+    sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--ivory);
+  font-family: var(--font);
+}
+
+#game {
+  position: fixed;
+  inset: 0;
+  display: block;
+  touch-action: none;
+}
+
+#ui {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.micro {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ivory-dim);
+}
+
+/* ---- HUD ---- */
+
+.hud {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.hud.visible {
+  opacity: 1;
+}
+
+.hud-top-left {
+  position: absolute;
+  top: 20px;
+  left: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hud-timer {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+}
+
+.hud-timer .time {
+  font-family: var(--mono);
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.hud-top-right {
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stat-value {
+  font-family: var(--mono);
+  font-size: 17px;
+  margin-top: 2px;
+}
+
+.bar {
+  width: 190px;
+  height: 6px;
+  background: rgba(242, 237, 228, 0.12);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 5px;
+}
+
+.bar-fill {
+  height: 100%;
+  width: 100%;
+  border-radius: 3px;
+  transform-origin: left center;
+  transition: transform 0.15s ease-out;
+}
+
+.bar-fill.hp {
+  background: var(--gold);
+}
+
+.bar-fill.boss {
+  background: var(--violet);
+}
+
+.hud-xp {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 5px;
+  background: rgba(242, 237, 228, 0.08);
+}
+
+.hud-xp .bar-fill {
+  background: var(--gold);
+  transition: transform 0.2s ease-out;
+  border-radius: 0;
+}
+
+.hud-boss {
+  position: absolute;
+  top: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  display: none;
+}
+
+.hud-boss.visible {
+  display: block;
+}
+
+.hud-boss .bar {
+  width: 320px;
+  margin: 6px auto 0;
+}
+
+.hud-announce {
+  position: absolute;
+  top: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 13px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--gold);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  white-space: nowrap;
+}
+
+.hud-announce.visible {
+  opacity: 1;
+}
+
+/* ---- Overlay screens ---- */
+
+.screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: rgba(10, 10, 18, 0.78);
+  pointer-events: auto;
+  text-align: center;
+  padding: 24px;
+}
+
+.screen.translucent {
+  background: rgba(10, 10, 18, 0.55);
+}
+
+.screen h1 {
+  font-size: 44px;
+  font-weight: 300;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  text-indent: 0.34em;
+}
+
+.screen h2 {
+  font-size: 22px;
+  font-weight: 400;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  text-indent: 0.26em;
+}
+
+.screen .lede {
+  max-width: 420px;
+  color: var(--ivory-dim);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.btn {
+  pointer-events: auto;
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--ivory);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  padding: 14px 34px;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+
+.btn:hover,
+.btn:focus-visible {
+  border-color: var(--gold);
+  background: rgba(232, 183, 106, 0.08);
+  outline: none;
+}
+
+.btn.primary {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.btn-row {
+  display: flex;
+  gap: 14px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.controls-hint {
+  margin-top: 26px;
+  display: flex;
+  gap: 26px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.controls-hint span b {
+  font-weight: 600;
+  color: var(--ivory);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+/* ---- Level-up cards ---- */
+
+.cards {
+  display: flex;
+  gap: 16px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.card {
+  pointer-events: auto;
+  width: 218px;
+  min-height: 150px;
+  padding: 22px 20px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition:
+    border-color 0.15s ease,
+    transform 0.15s ease;
+  font-family: var(--font);
+  color: var(--ivory);
+}
+
+.card:hover,
+.card:focus-visible {
+  border-color: var(--gold);
+  transform: translateY(-3px);
+  outline: none;
+}
+
+.card .kicker {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.card .kicker.passive {
+  color: var(--violet);
+}
+
+.card .title {
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.card .detail {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ivory-dim);
+}
+
+.card .key {
+  margin-top: auto;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ivory-dim);
+  letter-spacing: 0.16em;
+}
+
+/* ---- Result stats ---- */
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(130px, 1fr));
+  gap: 14px 44px;
+  margin: 10px 0 4px;
+}
+
+.stats-grid div {
+  text-align: center;
+}
+
+.stats-grid .stat-value {
+  font-size: 21px;
+}
+
+.seed-line {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ivory-dim);
+  letter-spacing: 0.1em;
+}
+
+/* ---- Perf HUD ---- */
+
+.perf {
+  position: absolute;
+  bottom: 18px;
+  left: 18px;
+  padding: 10px 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  line-height: 1.7;
+  color: var(--ivory-dim);
+  display: none;
+  pointer-events: none;
+}
+
+.perf.visible {
+  display: block;
+}
+
+.perf canvas {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.perf b {
+  color: var(--ivory);
+  font-weight: 600;
+}
