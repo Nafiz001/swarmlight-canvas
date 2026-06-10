@@ -74,6 +74,16 @@ const HASH_CELL = 48;
 const CONTACT_KNOCKBACK = 170;
 const STARFALL_RADIUS = 720;
 const BOSS_MINION_INTERVAL = 7;
+/**
+ * Spawn ring radius derived from a fixed 1280x720 design resolution — never
+ * the live viewport, so identical seeds play out identically on every
+ * window size and resizing mid-run cannot perturb the simulation.
+ */
+const SPAWN_RING = Math.hypot(1280, 720) / 2 + 60;
+/** Enemies farther than this from the player teleport back to the ring. */
+const FAR_LIMIT = SPAWN_RING * 2.2;
+/** Minimum interval between boss hit-stop freezes (seconds of game time). */
+const HIT_STOP_INTERVAL = 0.25;
 
 let projectileUid = 1;
 
@@ -89,7 +99,17 @@ export class Game implements CombatWorld {
   daily = false;
 
   player: PlayerState = createPlayer();
+  /**
+   * Three independent streams seeded from the run seed keep the advertised
+   * determinism honest: `rng` is consumed only by the time-driven spawn
+   * schedule (wave composition, elites, spawn positions), `draftRng` only by
+   * upgrade drafts, and `fxRng` by everything whose draw count depends on
+   * moment-to-moment play (loot rolls, particles, bob phases, repositions).
+   * Kill timing can therefore never perturb what spawns or what is drafted.
+   */
   rng = new Rng(1);
+  draftRng = new Rng(1);
+  fxRng = new Rng(1);
   readonly enemies = new Pool<Enemy>(createEnemy, 256, ENEMY_CAP);
   readonly projectiles = new Pool<Projectile>(createProjectile, 128, PROJECTILE_CAP);
   readonly pickups = new Pool<Pickup>(createPickup, 256, PICKUP_CAP);
@@ -112,10 +132,6 @@ export class Game implements CombatWorld {
 
   events: GameEvents = {};
 
-  /** Viewport size in CSS px (set by main on resize); drives the spawn ring. */
-  viewW = 1280;
-  viewH = 720;
-
   readonly queryBuf: number[] = [];
   /** Hoisted once so the per-enemy separation pass allocates no closures. */
   private readonly enemyLookup = (id: number): Enemy => this.enemies.at(id);
@@ -126,11 +142,15 @@ export class Game implements CombatWorld {
   private bossIndex = 0;
   private levelUpQueue = 0;
   private frameParity = 0;
+  /** Game-time of the last boss hit-stop, so freezes cannot chain back-to-back. */
+  private lastHitStopAt = -1;
 
   startRun(seed: number, daily: boolean): void {
     this.seed = seed;
     this.daily = daily;
     this.rng = new Rng(seed);
+    this.draftRng = new Rng((seed ^ 0x9e3779b9) >>> 0);
+    this.fxRng = new Rng((seed ^ 0x85ebca6b) >>> 0);
     this.player = createPlayer();
     this.enemies.releaseAll();
     this.projectiles.releaseAll();
@@ -151,14 +171,21 @@ export class Game implements CombatWorld {
     this.bossIndex = 0;
     this.levelUpQueue = 0;
     this.frameParity = 0;
+    this.lastHitStopAt = -1;
     this.phase = 'running';
   }
 
   update(dt: number, input: InputFrame): void {
-    if (this.phase !== 'running' && this.phase !== 'levelup') return;
+    if (this.phase !== 'running' && this.phase !== 'levelup') {
+      // The loop keeps consuming fixed steps; sync the interpolation state so
+      // the renderer never saw-tooths between a stale prev and current position.
+      this.syncPrevPosition();
+      return;
+    }
 
     if (this.hitStop > 0) {
       this.hitStop -= dt;
+      this.syncPrevPosition();
       return;
     }
 
@@ -180,6 +207,8 @@ export class Game implements CombatWorld {
 
     if (this.player.hp <= 0 && this.phase === 'running') {
       this.phase = 'gameover';
+      this.pendingChoices = null;
+      this.levelUpQueue = 0;
       this.events.onGameOver?.();
       return;
     }
@@ -250,8 +279,13 @@ export class Game implements CombatWorld {
     this.damageNumbers.spawn(e.x, e.y - e.radius, amount);
     this.events.onEnemyHit?.(e.boss !== 0);
     if (e.boss !== 0) {
-      // Hit-stop + shake make boss hits land heavy.
-      this.hitStop = 0.07;
+      // Hit-stop + shake make boss hits land heavy. A refractory interval
+      // keeps it an accent: a developed build lands ~20 boss hits a second,
+      // and re-arming on every one would freeze the fight into a stutter.
+      if (this.time - this.lastHitStopAt >= HIT_STOP_INTERVAL) {
+        this.hitStop = 0.07;
+        this.lastHitStopAt = this.time;
+      }
       this.shake = Math.min(10, this.shake + 2.5);
     }
   }
@@ -261,6 +295,7 @@ export class Game implements CombatWorld {
     this.hash.queryCircle(x, y, radius, this.queryBuf);
     for (let i = 0; i < this.queryBuf.length; i++) {
       const e = this.enemyAt(this.queryBuf[i] as number);
+      if (e.hp <= 0) continue; // already dead this frame; no corpse numbers/stats
       const dist = Math.hypot(e.x - x, e.y - y) || 1;
       this.damageEnemy(e, damage, ((e.x - x) / dist) * 240, ((e.y - y) / dist) * 240);
     }
@@ -309,6 +344,7 @@ export class Game implements CombatWorld {
         const id = this.queryBuf[i] as number;
         if (visited.includes(id)) continue; // visited.length <= 7, linear scan is fine
         const other = this.enemyAt(id);
+        if (other.hp <= 0) continue; // never spend a chain jump on a corpse
         const dx = other.x - cx;
         const dy = other.y - cy;
         const d = dx * dx + dy * dy;
@@ -344,7 +380,7 @@ export class Game implements CombatWorld {
 
   private enterLevelUp(): void {
     const owned = this.weapons.map((w) => ({ kind: w.kind, level: w.level }));
-    const choices = rollUpgradeChoices(owned, this.player.passives, this.rng);
+    const choices = rollUpgradeChoices(owned, this.player.passives, this.draftRng);
     this.pendingChoices = choices;
     this.phase = 'levelup';
     this.events.onLevelUp?.(choices);
@@ -396,10 +432,6 @@ export class Game implements CombatWorld {
     if (p.hurtPulse > 0) p.hurtPulse = Math.max(0, p.hurtPulse - 1.6 * dt);
   }
 
-  private spawnRingDistance(): number {
-    return Math.hypot(this.viewW, this.viewH) / 2 + 60;
-  }
-
   private spawnWave(dt: number): void {
     this.spawnTimer -= dt;
     const phase = phaseAt(this.time);
@@ -424,6 +456,9 @@ export class Game implements CombatWorld {
       const boss = BOSSES[this.bossIndex];
       if (boss === undefined || this.time < boss.t) break;
       this.bossIndex++;
+      // A boss is a headline event: if the pool is saturated, evict the
+      // farthest regular enemy so the spawn can never be silently skipped.
+      this.ensureEnemySlot();
       const e = this.spawnAtRing(boss.kind, false);
       if (e !== null) {
         this.activeBoss = e;
@@ -434,11 +469,30 @@ export class Game implements CombatWorld {
     }
   }
 
+  /** Frees one pool slot by releasing the farthest non-boss enemy, if at cap. */
+  private ensureEnemySlot(): void {
+    if (this.enemies.liveCount < ENEMY_CAP) return;
+    let farthest: Enemy | null = null;
+    let bestDistSq = -1;
+    for (let i = 0; i < this.enemies.liveCount; i++) {
+      const e = this.enemies.at(i);
+      if (e.boss !== 0) continue;
+      const dx = e.x - this.player.x;
+      const dy = e.y - this.player.y;
+      const d = dx * dx + dy * dy;
+      if (d > bestDistSq) {
+        bestDistSq = d;
+        farthest = e;
+      }
+    }
+    if (farthest !== null) this.enemies.release(farthest);
+  }
+
   private spawnAtRing(kind: EnemyKind, elite: boolean): Enemy | null {
     const e = this.enemies.tryAcquire();
     if (e === null) return null;
     const angle = this.rng.next() * Math.PI * 2;
-    const dist = this.spawnRingDistance() + this.rng.range(0, 90);
+    const dist = SPAWN_RING + this.rng.range(0, 90);
     initEnemy(
       e,
       kind,
@@ -540,12 +594,13 @@ export class Game implements CombatWorld {
 
       // Enemies that fall too far behind are repositioned to the spawn ring
       // instead of despawning — pressure stays constant, memory stays flat.
+      // Whether this branch fires depends on how the player moved, so it
+      // draws from fxRng: the schedule stream must stay purely time-driven.
       const dx = e.x - p.x;
       const dy = e.y - p.y;
-      const farLimit = this.spawnRingDistance() * 2.2;
-      if (e.boss === 0 && dx * dx + dy * dy > farLimit * farLimit) {
-        const angle = this.rng.next() * Math.PI * 2;
-        const dist = this.spawnRingDistance() + 40;
+      if (e.boss === 0 && dx * dx + dy * dy > FAR_LIMIT * FAR_LIMIT) {
+        const angle = this.fxRng.next() * Math.PI * 2;
+        const dist = SPAWN_RING + 40;
         e.x = p.x + Math.cos(angle) * dist;
         e.y = p.y + Math.sin(angle) * dist;
       }
@@ -634,15 +689,15 @@ export class Game implements CombatWorld {
           if (dx * dx + dy * dy <= STARFALL_RADIUS * STARFALL_RADIUS) e.hp = 0;
         }
         for (let i = 0; i < 140; i++) {
-          const a = this.rng.next() * Math.PI * 2;
-          const speed = this.rng.range(120, 520);
+          const a = this.fxRng.next() * Math.PI * 2;
+          const speed = this.fxRng.range(120, 520);
           this.particles.spawn(
             p.x,
             p.y,
             Math.cos(a) * speed,
             Math.sin(a) * speed,
-            this.rng.range(0.4, 0.9),
-            this.rng.range(2, 4.5),
+            this.fxRng.range(0.4, 0.9),
+            this.fxRng.range(2, 4.5),
             HUE.gold,
             2.5,
           );
@@ -666,7 +721,9 @@ export class Game implements CombatWorld {
       this.dropLoot(e);
 
       if (e.boss !== 0) {
-        this.activeBoss = null;
+        // Bosses can overlap (a slow build can keep boss1 alive into boss2's
+        // spawn); only clear the HUD reference if this death IS the active boss.
+        if (this.activeBoss === e) this.activeBoss = null;
         this.shake = Math.min(16, this.shake + 10);
         if (e.boss === 2) {
           this.enemies.release(e);
@@ -680,8 +737,8 @@ export class Game implements CombatWorld {
           initEnemy(
             m,
             'mite',
-            e.x + this.rng.range(-8, 8),
-            e.y + this.rng.range(-8, 8),
+            e.x + this.fxRng.range(-8, 8),
+            e.y + this.fxRng.range(-8, 8),
             hpScaleAt(this.time),
             speedScaleAt(this.time),
             false,
@@ -700,15 +757,17 @@ export class Game implements CombatWorld {
     }
     if (e.boss !== 0) {
       for (let i = 0; i < 5; i++) {
-        this.spawnPickup('gem3', e.x + this.rng.range(-30, 30), e.y + this.rng.range(-30, 30), GEM_VALUES.gem3);
+        this.spawnPickup('gem3', e.x + this.fxRng.range(-30, 30), e.y + this.fxRng.range(-30, 30), GEM_VALUES.gem3);
       }
       this.spawnPickup('ember', e.x, e.y, 0);
       return;
     }
 
     // Mites only sometimes drop XP, otherwise late-game gem counts explode.
-    if (e.kind === 'mite' && !this.rng.chance(0.6)) return;
-    const roll = this.rng.next();
+    // Loot draws ride fxRng: their count tracks kill timing, which is play-
+    // dependent and must never advance the wave-schedule stream.
+    if (e.kind === 'mite' && !this.fxRng.chance(0.6)) return;
+    const roll = this.fxRng.next();
     if (roll < 0.008) this.spawnPickup('ember', e.x, e.y, 0);
     else if (roll < 0.011) this.spawnPickup('magnet', e.x, e.y, 0);
     else if (roll < 0.0125) this.spawnPickup('starfall', e.x, e.y, 0);
@@ -718,10 +777,20 @@ export class Game implements CombatWorld {
   private spawnPickup(kind: PickupKind, x: number, y: number, value: number): void {
     const g = this.pickups.tryAcquire();
     if (g === null) {
-      // Pool saturated: fold the XP into a random live gem instead of losing it.
-      if (value > 0 && this.pickups.liveCount > 0) {
-        const other = this.pickups.at(this.rng.int(0, this.pickups.liveCount - 1));
-        other.value += value;
+      // Pool saturated: fold the XP into a random live gem instead of losing
+      // it. Only gems read `value` on collect, so scan from a random start
+      // for one; if none is live, grant the XP directly — never drop it.
+      if (value > 0) {
+        const n = this.pickups.liveCount;
+        const start = n > 0 ? this.fxRng.int(0, n - 1) : 0;
+        for (let i = 0; i < n; i++) {
+          const other = this.pickups.at((start + i) % n);
+          if (other.kind === 'gem1' || other.kind === 'gem2' || other.kind === 'gem3') {
+            other.value += value;
+            return;
+          }
+        }
+        this.levelUpQueue += grantXp(this.player, value);
       }
       return;
     }
@@ -731,22 +800,22 @@ export class Game implements CombatWorld {
     g.value = value;
     g.magnetized = false;
     g.pullSpeed = 0;
-    g.bob = this.rng.next() * Math.PI * 2;
+    g.bob = this.fxRng.next() * Math.PI * 2;
   }
 
   private spawnDeathBurst(e: Enemy): void {
     const count = e.boss !== 0 ? 60 : e.elite ? 24 : 6;
     const hue = e.boss !== 0 || e.elite ? HUE.violet : e.kind === 'mite' || e.kind === 'darter' ? HUE.teal : HUE.violet;
     for (let i = 0; i < count; i++) {
-      const a = this.rng.next() * Math.PI * 2;
-      const speed = this.rng.range(40, e.boss !== 0 ? 380 : 190);
+      const a = this.fxRng.next() * Math.PI * 2;
+      const speed = this.fxRng.range(40, e.boss !== 0 ? 380 : 190);
       this.particles.spawn(
         e.x,
         e.y,
         Math.cos(a) * speed,
         Math.sin(a) * speed,
-        this.rng.range(0.25, 0.6),
-        this.rng.range(1.5, 3.2),
+        this.fxRng.range(0.25, 0.6),
+        this.fxRng.range(1.5, 3.2),
         hue,
         3,
       );
@@ -755,14 +824,23 @@ export class Game implements CombatWorld {
 
   private spawnHitSparks(x: number, y: number, count: number): void {
     for (let i = 0; i < count; i++) {
-      const a = this.rng.next() * Math.PI * 2;
-      const speed = this.rng.range(60, 200);
+      const a = this.fxRng.next() * Math.PI * 2;
+      const speed = this.fxRng.range(60, 200);
       this.particles.spawn(x, y, Math.cos(a) * speed, Math.sin(a) * speed, 0.2, 1.8, HUE.gold, 4);
     }
   }
 
   private triggerVictory(): void {
     this.phase = 'victory';
+    // Victory can land while a level-up overlay is open (slow-mo kills);
+    // drop the stale draft so no level-up state survives into the results.
+    this.pendingChoices = null;
+    this.levelUpQueue = 0;
     this.events.onVictory?.();
+  }
+
+  private syncPrevPosition(): void {
+    this.player.prevX = this.player.x;
+    this.player.prevY = this.player.y;
   }
 }

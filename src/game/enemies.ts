@@ -37,7 +37,8 @@ export const ENEMY_DEFS: Record<EnemyKind, EnemyDef> = {
 export const DART = { chase: 0, windup: 1, dash: 2, recover: 3 } as const;
 
 const DART_TRIGGER_DIST = 240;
-const DART_WINDUP = 0.55;
+/** Exported so the renderer's telegraph glow stays in sync with the dash timing. */
+export const DART_WINDUP = 0.55;
 const DART_DURATION = 0.4;
 const DART_RECOVER = 0.9;
 const DART_SPEED_MULT = 4.2;

@@ -1,6 +1,7 @@
 /**
- * Deterministic PRNG (mulberry32). One seeded stream drives wave composition
- * and upgrade rolls so a seed is a fair, shareable challenge.
+ * Deterministic PRNG (mulberry32). The game seeds independent streams from
+ * the run seed (schedule, drafts, fx) so a seed is a fair, shareable
+ * challenge no matter how a particular run is played.
  */
 export class Rng {
   private state: number;

@@ -1,6 +1,6 @@
 import type { Game } from '../game/game';
 import type { JoystickState } from '../engine/input';
-import { DART } from '../game/enemies';
+import { DART, DART_WINDUP } from '../game/enemies';
 import { statsFor } from '../game/weapons';
 import { bakeSprites, PALETTE, type SpriteAtlas } from './sprites';
 
@@ -184,7 +184,7 @@ export class Renderer {
       let glowAlpha = 0.5;
       if (e.kind === 'darter' && e.phase === DART.windup) {
         // Telegraph: glow swells during the wind-up so the dash reads early.
-        const t = 1 - e.phaseTimer / 0.55;
+        const t = 1 - e.phaseTimer / DART_WINDUP;
         scale *= 1 + t * 0.9;
         glowAlpha = 0.5 + t * 0.5;
       }
@@ -215,8 +215,9 @@ export class Renderer {
 
   private drawWards(px: number, py: number): void {
     const { ctx, game } = this;
-    for (const w of game.weapons) {
-      if (w.kind !== 'orbit') continue;
+    for (let wi = 0; wi < game.weapons.length; wi++) {
+      const w = game.weapons[wi];
+      if (w === undefined || w.kind !== 'orbit') continue;
       const stats = statsFor('orbit', w.level);
       const sprite = this.sprites.ward;
       for (let i = 0; i < stats.count; i++) {

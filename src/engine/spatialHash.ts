@@ -1,16 +1,25 @@
 const EMPTY_BUCKET: readonly number[] = [];
 
 /**
+ * Buckets are evicted wholesale once the visited-cell set grows past this
+ * bound, so long runs that wander far never accrete unbounded Map entries.
+ */
+const MAX_RETAINED_BUCKETS = 8192;
+
+/**
  * Uniform-grid spatial hash for broad-phase collision queries.
  *
  * Entities are stored as circles in flat typed arrays (struct-of-arrays);
  * buckets map a packed numeric cell key to slot indices. Bucket arrays are
- * reused across frames (length reset, never freed), and queries dedup
- * multi-cell entries with a generation stamp instead of a Set, so a full
- * clear/insert/query cycle performs zero allocations once warm.
+ * reused across frames (length reset, never freed until eviction), and
+ * queries dedup multi-cell entries with a generation stamp instead of a Set.
+ * clear() resets only the buckets touched since the last clear, so its cost
+ * tracks the live entity count, not every cell ever visited.
  */
 export class SpatialHash {
   private buckets = new Map<number, number[]>();
+  /** Buckets written since the last clear(); reset by index, no iterator. */
+  private readonly touched: number[][] = [];
   private xs: Float32Array;
   private ys: Float32Array;
   private rs: Float32Array;
@@ -43,7 +52,16 @@ export class SpatialHash {
   }
 
   clear(): void {
-    for (const bucket of this.buckets.values()) bucket.length = 0;
+    if (this.buckets.size > MAX_RETAINED_BUCKETS) {
+      // The visited-cell set has outgrown its bound (a long wandering run):
+      // drop every bucket and let the next inserts rebuild the working set.
+      this.buckets.clear();
+    } else {
+      for (let i = 0; i < this.touched.length; i++) {
+        (this.touched[i] as number[]).length = 0;
+      }
+    }
+    this.touched.length = 0;
     this.count = 0;
     this.pairChecks = 0;
   }
@@ -70,6 +88,7 @@ export class SpatialHash {
           bucket = [];
           this.buckets.set(key, bucket);
         }
+        if (bucket.length === 0) this.touched.push(bucket);
         bucket.push(slot);
       }
     }

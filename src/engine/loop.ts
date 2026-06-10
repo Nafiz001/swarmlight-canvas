@@ -10,7 +10,6 @@ const MAX_ACCUMULATED = 0.25; // clamp so a backgrounded tab never spirals
  */
 export class GameLoop {
   timeScale = 1;
-  paused = false;
   /** Raw duration of the last animation frame, in ms (for the perf HUD). */
   frameMs = 0;
 
@@ -45,13 +44,11 @@ export class GameLoop {
     this.frameMs = frame * 1000;
     if (frame > MAX_ACCUMULATED) frame = MAX_ACCUMULATED;
 
-    if (!this.paused) {
-      this.accumulator += frame * this.timeScale;
-      if (this.accumulator > MAX_ACCUMULATED) this.accumulator = MAX_ACCUMULATED;
-      while (this.accumulator >= STEP) {
-        this.update(STEP);
-        this.accumulator -= STEP;
-      }
+    this.accumulator += frame * this.timeScale;
+    if (this.accumulator > MAX_ACCUMULATED) this.accumulator = MAX_ACCUMULATED;
+    while (this.accumulator >= STEP) {
+      this.update(STEP);
+      this.accumulator -= STEP;
     }
 
     this.render(this.accumulator / STEP, frame);

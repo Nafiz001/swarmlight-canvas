@@ -127,7 +127,8 @@ export const ORBIT_HIT_INTERVAL = 0.45;
  * orchestrator (no runtime cycle, tests stay narrow).
  */
 export interface CombatWorld {
-  readonly rng: Rng;
+  /** Cosmetic/positional stream — never the wave-schedule or draft streams. */
+  readonly fxRng: Rng;
   readonly time: number;
   readonly player: PlayerState;
   readonly hash: SpatialHash;
@@ -158,6 +159,7 @@ export function nearestEnemy(world: CombatWorld, x: number, y: number, range: nu
   for (let i = 0; i < world.queryBuf.length; i++) {
     const id = world.queryBuf[i] as number;
     const e = world.enemyAt(id);
+    if (e.hp <= 0) continue; // killed earlier this frame, swept at frame end
     const dx = e.x - x;
     const dy = e.y - y;
     const d = dx * dx + dy * dy;
@@ -191,6 +193,7 @@ export function updateWeapon(
       world.hash.queryCircle(wx, wy, 13, world.queryBuf);
       for (let j = 0; j < world.queryBuf.length; j++) {
         const e = world.enemyAt(world.queryBuf[j] as number);
+        if (e.hp <= 0) continue;
         if (world.time - e.lastOrbitHit < ORBIT_HIT_INTERVAL * cooldownMult) continue;
         e.lastOrbitHit = world.time;
         const dist = Math.hypot(e.x - wx, e.y - wy) || 1;
@@ -223,7 +226,7 @@ export function updateWeapon(
     }
     case 'wisp': {
       for (let i = 0; i < stats.count; i++) {
-        const angle = world.rng.next() * Math.PI * 2;
+        const angle = world.fxRng.next() * Math.PI * 2;
         world.fireWisp(player.x, player.y, angle, stats.speed, damage, stats.pierce);
       }
       break;

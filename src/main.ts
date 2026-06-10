@@ -24,11 +24,9 @@ const perfHud = new PerfHud(uiRoot);
 const LEVELUP_TIMESCALE = 0.05;
 
 function resize(): void {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  renderer.resize(w, h, window.devicePixelRatio || 1);
-  game.viewW = w;
-  game.viewH = h;
+  // Render-only: the sim's spawn ring is a fixed design-resolution constant,
+  // so the viewport never leaks into seeded runs.
+  renderer.resize(window.innerWidth, window.innerHeight, window.devicePixelRatio || 1);
 }
 window.addEventListener('resize', resize);
 resize();
@@ -71,6 +69,9 @@ function showTitle(): void {
 }
 
 function endRun(victory: boolean): void {
+  // A run can end while the level-up slow-mo is active (e.g. a queued nova
+  // kills the final boss under the draft overlay); never leave 0.05x behind.
+  loop.timeScale = 1;
   hud.setVisible(false);
   if (victory) audio.victory();
   else audio.defeat();

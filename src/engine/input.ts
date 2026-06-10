@@ -43,6 +43,9 @@ export class Input {
 
     target.addEventListener('pointerdown', (e) => {
       if (e.pointerType === 'mouse' || e.clientX > window.innerWidth / 2) return;
+      // One pointer owns the joystick: a second finger resting on the left
+      // half must not steal (and, on release, kill) the player's movement.
+      if (this.joyPointerId !== -1) return;
       this.joyPointerId = e.pointerId;
       this.joystick.active = true;
       this.joystick.originX = e.clientX;
